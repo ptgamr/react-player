@@ -43,9 +43,9 @@ export default class Player extends Component {
       return
     }
     // Invoke player methods based on changed props
-    const { url, playing, volume, muted, playbackRate, pip, loop, activePlayer } = this.props
+    const { url, playing, volume, muted, playbackRate, pip, loop, activePlayer, disableDeferredLoading } = this.props
     if (!isEqual(prevProps.url, url)) {
-      if (this.isLoading && !activePlayer.forceLoad && !isMediaStream(url)) {
+      if (this.isLoading && !activePlayer.forceLoad && !disableDeferredLoading && !isMediaStream(url)) {
         console.warn(`ReactPlayer: the attempt to load ${url} is being deferred until the player has loaded`)
         this.loadOnReady = url
         return
@@ -90,6 +90,7 @@ export default class Player extends Component {
   }
 
   handlePlayerMount = player => {
+    if (this.player) return // Prevent loading twice in strict mode
     this.player = player
     this.player.load(this.props.url)
     this.progress()
@@ -142,9 +143,11 @@ export default class Player extends Component {
 
   seekTo (amount, type) {
     // When seeking before player is ready, store value and seek later
-    if (!this.isReady && amount !== 0) {
-      this.seekOnPlay = amount
-      setTimeout(() => { this.seekOnPlay = null }, SEEK_ON_PLAY_EXPIRY)
+    if (!this.isReady) {
+      if (amount !== 0) {
+        this.seekOnPlay = amount
+        setTimeout(() => { this.seekOnPlay = null }, SEEK_ON_PLAY_EXPIRY)
+      }
       return
     }
     const isFraction = !type ? (amount > 0 && amount < 1) : type === 'fraction'
